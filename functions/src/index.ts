@@ -1,8 +1,30 @@
 import * as functions from 'firebase-functions';
+import * as line from '@line/bot-sdk';
+import * as express from 'express';
 
-// // Start writing Firebase Functions
-// // https://firebase.google.com/docs/functions/typescript
-//
-// export const helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
-// });
+const config = {
+    channelAccessToken: functions.config().linebot.token,
+    channelSecret: functions.config().linebot.secret,
+};
+
+const app = express();
+
+app.post("/costs", line.middleware(config), (req, res) => {
+    return Promise
+        .all(req.body.events.map(handleEvent))
+        .then((result) => res.json(result));
+})
+
+const client = new line.Client(config);
+function handleEvent(event: line.WebhookEvent) {
+    if (event.type !== 'message' || event.message.type !== 'text') {
+        return Promise.resolve(null);
+    }
+
+    return client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: event.message.text
+    });
+}
+
+export const lineBot = functions.https.onRequest(app);
