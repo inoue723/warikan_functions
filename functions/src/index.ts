@@ -11,39 +11,46 @@ const config = {
 
 const app = express();
 
-admin.initializeApp();
-
-app.post("/test", (req, res) => {
-  return Promise.all(req.body.events.map(handleEventTest)).then((result) =>
-    res.json(result)
-  );
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
 });
 
-async function handleEventTest(event: line.WebhookEvent) {
-  if (event.type !== "message" || event.message.type !== "text") {
-    return Promise.resolve(null);
-  }
+// test functions
+// app.post("/test", (req, res) => {
+//   return Promise.all(req.body.events.map(handleEventTest)).then((result) =>
+//     res.json(result)
+//   );
+// });
 
-  const userId = event.source.userId;
-  if (userId == null) return Promise.resolve(null);
+// async function handleEventTest(event: line.WebhookEvent) {
+//   if (event.type !== "message" || event.message.type !== "text") {
+//     return Promise.resolve(null);
+//   }
 
-  const userRef = admin.firestore().collection("users").doc(userId);
+//   const userId = event.source.userId;
+//   if (userId == null) return Promise.resolve("userId is null");
 
-  const user = await userRef.get();
-  if (!user.exists) {
-    await admin.firestore().collection("users").doc(userId).set({});
-  }
+//   const userRef = admin.firestore().collection("users").doc(userId);
 
-  const amount = Number(event.message.text);
-  if (!amount) return Promise.resolve(null);
+//   const user = await userRef.get();
+//   if (!user.exists) {
+//     await admin.firestore().collection("users").doc(userId).set({});
+//   }
 
-  await userRef
-    .collection("costs")
-    .doc(moment().utcOffset(9).format())
-    .set({ amount: amount, burdenRate: 0.5 });
+//   const amount = Number(event.message.text);
+//   if (!amount) return Promise.resolve("amount is not a number");
 
-  return Promise.resolve(null);
-}
+//   await userRef
+//     .collection("costs")
+//     .doc(moment().utcOffset(0).format("YYYY-MM-DDTHH:mm:ss.SSSSSS"))
+//     .set({
+//       amount: amount,
+//       burdenRate: 0.5,
+//       paymentDate: admin.firestore.Timestamp.fromDate(moment().toDate()),
+//     });
+
+//   return Promise.resolve(null);
+// }
 
 app.post("/costs", line.middleware(config), (req, res) => {
   return Promise.all(req.body.events.map(handleEvent)).then((result) =>
@@ -68,20 +75,21 @@ async function handleEvent(event: line.WebhookEvent) {
   }
 
   const amount = Number(event.message.text);
-  if (!amount) return reply("半角数字で入力してください", event);
+  if (!amount) return replyWithText("半角数字で入力してください", event);
 
   await userRef
     .collection("costs")
-    .doc(moment().utcOffset(9).format())
-    .set({ amount: amount, burdenRate: 0.5 });
+    .doc(moment().utcOffset(0).format("YYYY-MM-DDTHH:mm:ss.SSSSSS"))
+    .set({
+      amount: amount,
+      burdenRate: 0.5,
+      paymentDate: admin.firestore.Timestamp.fromDate(moment().toDate()),
+    });
 
-  return client.replyMessage(event.replyToken, {
-    type: "text",
-    text: event.message.text,
-  });
+  return replyWithText("記録しました！", event);
 }
 
-function reply(message: string, event: line.MessageEvent) {
+function replyWithText(message: string, event: line.MessageEvent) {
   return client.replyMessage(event.replyToken, {
     type: "text",
     text: message,
